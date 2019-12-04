@@ -9,7 +9,7 @@
       <p>Your recently played are:</p>
 	  <ul>
 	  {% for song in recents %}
-	  <li><a href="{{song.track.external_urls.spotify}}">{{song.track.name}}</a></li>
+	  <li><a href="{{song.track.external_urls.spotify}}">{{song.track.name}} Valence of {{valences[song.track.id]}}</a></li>
 	  {% endfor %}
   	  </ul>
 	  {% endif %}

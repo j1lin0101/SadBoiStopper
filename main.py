@@ -1,11 +1,3 @@
-"""
-   A barebones AppEngine application that allows the user to login
-   with Spotify and then lists their playlists.
-
-
-   Sean Munson for HCDE 310
-"""
-
 def pretty(obj):
     return json.dumps(obj, sort_keys=True, indent=2)
 
@@ -88,6 +80,7 @@ def cookie_signature(*parts):
 def spotifyurlfetch(url, access_token, params=None):
     headers = {'Authorization': 'Bearer ' + access_token}
     response = urlfetch.fetch(url, method=urlfetch.GET, payload=params, headers=headers)
+    logging.info(url)
     return response.content
 
 
@@ -124,11 +117,18 @@ class HomeHandler(BaseHandler):
         if user != None:
             ## if so, get their playlists
             url = "https://api.spotify.com/v1/me/player/recently-played"
-            ## in the future, should make this more robust so it checks if the access_token
-            ## is still valid and retrieves a new one using refresh_token if not
             response = json.loads(spotifyurlfetch(url, user.access_token, params={"after": "1428364800"}))
-            tvals["recents"] = response["items"]
-            logging.info(pretty(response["items"]))
+            songs = response["items"]
+            tvals["recents"] = songs
+            tvals["valences"] = {}
+
+            for song in songs:
+                songId = song["track"]["id"]
+                songurl = "https://api.spotify.com/v1/audio-features/%s"%songId
+                songInfo = json.loads(spotifyurlfetch(songurl, user.access_token))
+                songValence = songInfo["valence"]
+                logging.info(pretty("Valence: %f"%songValence))
+                tvals["valences"][songId] = songValence
 
 
         self.response.write(template.render(tvals))
