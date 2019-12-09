@@ -1,0 +1,24 @@
+<html>
+  <head>
+  <title>Playlist</title>
+  </head>
+  <body>
+    {% if current_user %}
+      <p>You are logged in as {{ current_user.displayname|escape }}.</p>
+	  {% if playlists %}
+      <p>Your playlists are:</p>
+	  <ul>
+	  {% for playlist in playlists %}
+	  <li><a href="{{playlist.external_urls.spotify}}">{{playlist.name}}</a> ({{playlist.tracks.total}} tracks)</li>
+	  {% endfor %}
+  	  </ul>
+	  {% endif %}
+    <p><a href="/create" name="gobtn">Create A new Playlist</a></p>
+    <p><a href="/">Go See Your Recents</a></p>
+      <p><a href="/auth/logout">Log out</a></p>
+    {% else %}
+      <p>You are not yet logged into this site</p>
+      <p><a href="/auth/login">Log in to Spotify</a></p>
+    {% endif %}
+  </body>
+</html>

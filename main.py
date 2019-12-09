@@ -47,7 +47,6 @@ def set_cookie(response, name, value, domain=None, path="/", expires=None):
 
 
 def parse_cookie(value):
-    """Parses and verifies a cookie value from set_cookie"""
     if not value: return None
     parts = value.split("|")
     if len(parts) != 3: return None
@@ -65,16 +64,9 @@ def parse_cookie(value):
 
 
 def cookie_signature(*parts):
-    """
-    Generates a cookie signature.
-
-    We use the Spotify app secret since it is different for every app (so
-    people using this example don't accidentally all use the same secret).
-    """
     chash = hmac.new(CLIENT_SECRET, digestmod=hashlib.sha1)
     for part in parts: chash.update(part)
     return chash.hexdigest()
-
 
 ### this adds a header with the user's access_token to Spotify requests
 def spotifyurlfetch(url, access_token, params=None):
@@ -83,12 +75,33 @@ def spotifyurlfetch(url, access_token, params=None):
     logging.info(url)
     return response.content
 
+def spotifyurlpost(url, access_token, params=None):
+    headers = {'Authorization': 'Bearer ' + access_token, "Content-Type": "application/json"}
+    response = urlfetch.fetch(url, method=urlfetch.POST, payload=params, headers=headers)
+    logging.info("Making a post " + url)
+    return response.content
+
+# INPUT: list of song valences
+# OUTPUT: overall sadness of the list
+#         Total Valence > 0.5 --> Happy
+#         Total Valence = 0.5 --> Neutral
+#         Total Valence < 0.5 --> Sad
+
+def determineOverallMood(valences):
+    songNum = len(valences)
+    totalValence = sum(valences)
+
+    meanValence = totalValence/songNum
+
+    if meanValence > 0.5:
+        return ("Happy", meanValence)
+    elif meanValence == 0.5:
+        return ("Neutral", meanValence)
+    return ("Sad", meanValence)
+
 
 ### handlers
 
-### this handler will be our Base Handler -- it checks for the current user.
-### creating this class allows our other classes to inherit from it
-### so they all "know about" the user
 class BaseHandler(webapp2.RequestHandler):
     # @property followed by def current_user makes so that if x is an instance
     # of BaseHandler, x.current_user can be referred to, which has the effect of
@@ -104,7 +117,6 @@ class BaseHandler(webapp2.RequestHandler):
                 self._current_user = User.get_by_key_name(user_id)
         return self._current_user
 
-
 ### this will handle our home page
 class HomeHandler(BaseHandler):
     def get(self):
@@ -115,26 +127,61 @@ class HomeHandler(BaseHandler):
         tvals = {'current_user': user}
 
         if user != None:
-            ## if so, get their playlists
+
             url = "https://api.spotify.com/v1/me/player/recently-played"
             response = json.loads(spotifyurlfetch(url, user.access_token, params={"after": "1428364800"}))
             songs = response["items"]
             tvals["recents"] = songs
-            tvals["valences"] = {}
+            valences = {}
 
             for song in songs:
                 songId = song["track"]["id"]
-                songurl = "https://api.spotify.com/v1/audio-features/%s"%songId
+                songurl = "https://api.spotify.com/v1/audio-features/%s" % songId
                 songInfo = json.loads(spotifyurlfetch(songurl, user.access_token))
                 songValence = songInfo["valence"]
-                logging.info(pretty("Valence: %f"%songValence))
-                tvals["valences"][songId] = songValence
+                logging.info(pretty("Valence: %f" % songValence))
+                valences[songId] = songValence
 
-
+            tvals["valences"] = valences
+            tvals["overallValence"] = determineOverallMood([valences[song] for song in valences])[0]
+            tvals["meanValence"] = round(determineOverallMood([valences[song] for song in valences])[1], 3)
         self.response.write(template.render(tvals))
 
     ### this handler will handle our authorization requests
 
+class PlaylistHandler(BaseHandler):
+    def get(self):
+        template = JINJA_ENVIRONMENT.get_template('playlist.html')
+
+        user = self.current_user
+        tvals = {'current_user': user}
+
+        if user != None:
+            ## if so, get their playlists
+            url = "https://api.spotify.com/v1/users/%s/playlists" % user.uid
+            ## in the future, should make this more robust so it checks if the access_token
+            ## is still valid and retrieves a new one using refresh_token if not
+            response = json.loads(spotifyurlfetch(url, user.access_token))
+
+            tvals["playlists"] = response["items"]
+
+        self.response.write(template.render(tvals))
+
+class CreatePlaylistHandler(BaseHandler):
+    def get(self):
+        user = self.current_user
+
+        if user != None:
+            # url = "https://api.spotify.com/v1/users/%s/playlists" % user.uid
+            # response = spotifyurlpost(url, user.access_token, params=json.dumps({"name": "Happy Time"}))
+
+            top = "https://api.spotify.com/v1/me/top/artists"
+            topGET = spotifyurlfetch(top, user.access_token)
+            # topArtists = [artist["name"] for artist in topGET["items"]]
+
+            logging.info(topGET)
+
+        # self.redirect("/playlist")
 
 class LoginHandler(BaseHandler):
     def get(self):
@@ -190,15 +237,17 @@ class LoginHandler(BaseHandler):
             args['redirect_uri'] = self.request.path_url
             args['response_type'] = "code"
             # ask for the necessary permissions - see details at https://developer.spotify.com/web-api/using-scopes/
-            args[
-                'scope'] = "user-library-modify playlist-modify-private playlist-modify-public playlist-read-collaborative user-read-recently-played"
-
+            args['scope'] = "refresh_token " \
+                            "user-library-modify " \
+                            "playlist-modify-private " \
+                            "playlist-modify-public " \
+                            "playlist-read-collaborative " \
+                            "user-read-recently-played"
             url = "https://accounts.spotify.com/authorize?" + urllib.urlencode(args)
             logging.info(url)
             self.redirect(url)
 
 
-## this handler logs the user out by making the cookie expire
 class LogoutHandler(BaseHandler):
     def get(self):
         set_cookie(self.response, "spotify_user", "", expires=time.time() - 86400)
@@ -207,6 +256,8 @@ class LogoutHandler(BaseHandler):
 
 application = webapp2.WSGIApplication([ \
     ("/", HomeHandler),
+    ("/playlist", PlaylistHandler),
+    ("/create", CreatePlaylistHandler),
     ("/auth/login", LoginHandler),
     ("/auth/logout", LogoutHandler)
 ], debug=True)
