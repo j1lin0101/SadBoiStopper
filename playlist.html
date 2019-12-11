@@ -1,24 +1,26 @@
 <html>
   <head>
-  <title>Playlist</title>
+  <title>Playlists</title>
   </head>
   <body>
     {% if current_user %}
-      <p>You are logged in as {{ current_user.displayname|escape }}.</p>
+    <p>You are logged in as {{ current_user.displayname|escape }}.</p>
 	  {% if playlists %}
-      <p>Your playlists are:</p>
-	  <ul>
-	  {% for playlist in playlists %}
-	  <li><a href="{{playlist.external_urls.spotify}}">{{playlist.name}}</a> ({{playlist.tracks.total}} tracks)</li>
-	  {% endfor %}
-  	  </ul>
+          <p>Your playlists are:</p>
+          <ul>
+          {% for playlist in playlists %}
+          <li><a href="{{playlist.external_urls.spotify}}">{{playlist.name}}</a> ({{playlist.tracks.total}} tracks)</li>
+          {% endfor %}
+          </ul>
 	  {% endif %}
-    <p><a href="/create" name="gobtn">Create A new Playlist</a></p>
-    <p><a href="/">Go See Your Recents</a></p>
+      {% if valence == "Sad" %}
+        <p>We noticed that you've been listening to a lot of sad songs recently.</p>
+        <p><a href="playlist/create" name="gobtn">Would you like to try some happy songs?</a></p>
+      {% endif %}
       <p><a href="/auth/logout">Log out</a></p>
     {% else %}
-      <p>You are not yet logged into this site</p>
-      <p><a href="/auth/login">Log in to Spotify</a></p>
+    <p>You are not yet logged into this site</p>
+    <p><a href="/auth/login">Log in to Spotify</a></p>
     {% endif %}
   </body>
 </html>

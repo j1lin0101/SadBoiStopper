@@ -1,0 +1,19 @@
+<html>
+  <head>
+  <title>Playlists</title>
+  </head>
+  <body>
+    {% if current_user %}
+      <p>Based on the artists you listen to already, we've created a playlist for you with some fun alternatives.</p>
+      <p>Your songs in {{playlist_name}} are:</p>
+	  <ul>
+	  {% for key, value in song_list.items() %}
+          <li>{{key}} by {{value["artist"]}}</li>
+	  {% endfor %}
+  	  </ul>
+	  {% endif %}
+    <p><a href="playlist/create">Create A new Playlist</a></p>
+    <p><a href="/">Go See Your Recents</a></p>
+    <p><a href="/auth/logout">Log out</a></p>
+  </body>
+</html>

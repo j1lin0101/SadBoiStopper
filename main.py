@@ -126,6 +126,22 @@ class BaseHandler(webapp2.RequestHandler):
                 self._current_user = User.get_by_key_name(user_id)
         return self._current_user
 
+    def new_playlist(self):
+        if not hasattr(self, "_new_playlist"):
+            self._new_playlist = None
+            songs = parse_cookie(self.request.cookies.get("new_playlist"))
+            if songs:
+                self._new_playlist = songs
+        return self._new_playlist
+
+    def valence(self):
+        if not hasattr(self, "_valence"):
+            self._valence = None
+            valence = parse_cookie(self.request.cookies.get("valence"))
+            if valence:
+                self._valence = valence
+            return self._valence
+
 ### this will handle our home page
 class HomeHandler(BaseHandler):
     def get(self):
@@ -140,6 +156,7 @@ class HomeHandler(BaseHandler):
             url = "https://api.spotify.com/v1/me/player/recently-played"
             response = json.loads(spotifyurlfetch(url, user.access_token, params={"after": "1428364800"}))
             songs = response["items"]
+
             tvals["recents"] = songs
             valences = {}
 
@@ -152,7 +169,11 @@ class HomeHandler(BaseHandler):
                 valences[songId] = songValence
 
             tvals["valences"] = valences
-            tvals["overallValence"] = determineOverallMood([valences[song] for song in valences])[0]
+            overallValence = determineOverallMood([valences[song] for song in valences])[0]
+
+            tvals["overallValence"] = overallValence
+            set_cookie(self.response, "valence", str(overallValence))
+
             tvals["meanValence"] = round(determineOverallMood([valences[song] for song in valences])[1], 3)
         self.response.write(template.render(tvals))
 
@@ -163,7 +184,7 @@ class PlaylistHandler(BaseHandler):
         template = JINJA_ENVIRONMENT.get_template('playlist.html')
 
         user = self.current_user
-        tvals = {'current_user': user}
+        tvals = {'current_user': user, "valence": self.valence()}
 
         if user != None:
             ## if so, get their playlists
@@ -184,6 +205,7 @@ class CreatePlaylistHandler(BaseHandler):
             userPlaylisturl = "https://api.spotify.com/v1/users/%s/playlists" % user.uid
             response = spotifyurlpost(userPlaylisturl, user.access_token, params=json.dumps({"name": "Happy Time"}))
             playlistId = json.loads(response)["id"]
+            set_cookie(self.response, "new_playlist", str(playlistId))
             logging.info(playlistId)
 
             recentsURL = "https://api.spotify.com/v1/me/player/recently-played"
@@ -218,7 +240,41 @@ class CreatePlaylistHandler(BaseHandler):
 
             tracksToPlay = spotifyurlpost(playlistUrl, user.access_token)
 
-            # self.redirect("/playlist"
+            self.redirect("/playlist/new")
+
+class NewPlaylistHandler(BaseHandler):
+    def get(self):
+        tvals = {}
+        tvals["current_user"] = self.current_user
+        template = JINJA_ENVIRONMENT.get_template('newplaylist.html')
+
+        playlistId = self.new_playlist()
+        user = self.current_user
+
+        playlistUrl = "https://api.spotify.com/v1/playlists/%s"%playlistId
+        playlistResponse = json.loads(spotifyurlfetch(playlistUrl, user.access_token))
+        playlistName = playlistResponse["name"]
+        tvals["playlist_name"] = playlistName
+
+        playlistTracksUrl = "https://api.spotify.com/v1/playlists/%s/tracks"%playlistId + "?fields=items(track(artists,name,href,album(name,href)))"
+        response = json.loads(spotifyurlfetch(playlistTracksUrl, user.access_token))["items"]
+
+        songs = {}
+
+        for song in response:
+            artists = []
+            artistsInfo = song["track"]["artists"]
+            for artist in artistsInfo:
+                artists.append(artist["name"])
+
+            name = song["track"]["name"]
+            songs[name] = {}
+            songs[name]["artist"] = ", ".join(artists)
+
+        tvals["song_list"] = songs
+        self.response.write(template.render(tvals))
+
+
 class LoginHandler(BaseHandler):
     def get(self):
         # after  login; redirected here
@@ -262,7 +318,7 @@ class LoginHandler(BaseHandler):
             user.put()
 
             ## set a cookie so we can find the user later
-            set_cookie(self.response, "spotify_user", str(user.uid), expires=time.time() + 30 * 86400)
+            set_cookie(self.response, "spotify_user", str(user.uid))
 
             ## okay, all done, send them back to the App's home page
             self.redirect("/")
@@ -281,14 +337,15 @@ class LoginHandler(BaseHandler):
 
 class LogoutHandler(BaseHandler):
     def get(self):
-        set_cookie(self.response, "spotify_user", "", expires=time.time() - 86400)
+        set_cookie(self.response, "spotify_user", "")
         self.redirect("/")
 
 
 application = webapp2.WSGIApplication([ \
     ("/", HomeHandler),
     ("/playlist", PlaylistHandler),
-    ("/create", CreatePlaylistHandler),
+    ("/playlist/create", CreatePlaylistHandler),
     ("/auth/login", LoginHandler),
+    ("/playlist/new", NewPlaylistHandler),
     ("/auth/logout", LogoutHandler)
 ], debug=True)
