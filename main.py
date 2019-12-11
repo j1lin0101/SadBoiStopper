@@ -99,8 +99,17 @@ def determineOverallMood(valences):
         return ("Neutral", meanValence)
     return ("Sad", meanValence)
 
+def getTopSongsForArists(id, access_token):
+    url = "https://api.spotify.com/v1/artists/%s/top-tracks?country=US"%id
+    songsData = json.loads(spotifyurlfetch(url=url, access_token=access_token))["tracks"]
 
-### handlers
+    songs = []
+    for song in songsData:
+        songId = song["id"]
+        songurl = "https://api.spotify.com/v1/audio-features/%s" % songId
+        songInfo = json.loads(spotifyurlfetch(songurl, access_token))
+        songs.append(songInfo)
+    return songs
 
 class BaseHandler(webapp2.RequestHandler):
     # @property followed by def current_user makes so that if x is an instance
@@ -172,17 +181,44 @@ class CreatePlaylistHandler(BaseHandler):
         user = self.current_user
 
         if user != None:
-            # url = "https://api.spotify.com/v1/users/%s/playlists" % user.uid
-            # response = spotifyurlpost(url, user.access_token, params=json.dumps({"name": "Happy Time"}))
+            userPlaylisturl = "https://api.spotify.com/v1/users/%s/playlists" % user.uid
+            response = spotifyurlpost(userPlaylisturl, user.access_token, params=json.dumps({"name": "Happy Time"}))
+            playlistId = json.loads(response)["id"]
+            logging.info(playlistId)
 
-            top = "https://api.spotify.com/v1/me/top/artists"
-            topGET = spotifyurlfetch(top, user.access_token)
-            # topArtists = [artist["name"] for artist in topGET["items"]]
+            recentsURL = "https://api.spotify.com/v1/me/player/recently-played"
+            recents = json.loads(spotifyurlfetch(recentsURL, user.access_token, params={"after": "1428364800"}))
+            songs = recents["items"]
+            artists = {}
 
-            logging.info(topGET)
+            for song in songs:
+                artist = song["track"]["album"]["artists"][0]["name"]
+                id = song["track"]["album"]["artists"][0]["id"]
+                if artist not in artists:
+                    artists[artist] = id
 
-        # self.redirect("/playlist")
+            artistsTopSongs = []
+            for artistId in artists:
+                artistsTopSongs.append(getTopSongsForArists(artists[artistId], user.access_token))
+            # logging.info(pretty(artistsTopSongs))
 
+            happySongs = []
+            for songsInfo in artistsTopSongs:
+               for song in songsInfo:
+                   songId = song["id"]
+                   songurl = "https://api.spotify.com/v1/audio-features/%s" % songId
+                   songInfo = json.loads(spotifyurlfetch(songurl, user.access_token))
+                   songValence = songInfo["valence"]
+                   if songValence > 0.5:
+                       happySongs.append(songId)
+            happySongs = ["spotify:track:" + song for song in happySongs]
+            firstSong = happySongs[0]
+            logging.info("First Song" + firstSong)
+            playlistUrl = "https://api.spotify.com/v1/playlists/%s/tracks"%playlistId + "?uris=" + ",".join(happySongs)
+
+            tracksToPlay = spotifyurlpost(playlistUrl, user.access_token)
+
+            # self.redirect("/playlist"
 class LoginHandler(BaseHandler):
     def get(self):
         # after  login; redirected here
@@ -237,12 +273,7 @@ class LoginHandler(BaseHandler):
             args['redirect_uri'] = self.request.path_url
             args['response_type'] = "code"
             # ask for the necessary permissions - see details at https://developer.spotify.com/web-api/using-scopes/
-            args['scope'] = "refresh_token " \
-                            "user-library-modify " \
-                            "playlist-modify-private " \
-                            "playlist-modify-public " \
-                            "playlist-read-collaborative " \
-                            "user-read-recently-played"
+            args['scope'] = "user-read-recently-played user-library-modify playlist-modify-private playlist-modify-public playlist-read-collaborative"
             url = "https://accounts.spotify.com/authorize?" + urllib.urlencode(args)
             logging.info(url)
             self.redirect(url)
