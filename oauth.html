@@ -18,8 +18,11 @@
             </ul>
         {% endif %}
         <p>Your Overall Mood is {{overallValence}} - {{meanValence}}</p>
+        {% if overallValence == "Sad" %}
+            <p>We noticed that you've been listening to a lot of sad songs recently.</p>
+            <p><a href="playlist/create" name="gobtn">Would you like to try some happy songs?</a></p>
+          {% endif %}
         <p><a href="/auth/logout">Log out</a></p>
-        <p><a href="/playlist">Get Your Playlists</a></p>
     {% else %}
         <p>You are not yet logged into this site</p>
         <p><a href="/auth/login">Log in to Spotify</a></p>

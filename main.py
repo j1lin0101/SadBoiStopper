@@ -154,7 +154,9 @@ class HomeHandler(BaseHandler):
         if user != None:
 
             url = "https://api.spotify.com/v1/me/player/recently-played"
-            response = json.loads(spotifyurlfetch(url, user.access_token, params={"after": "1428364800"}))
+            response = json.loads(spotifyurlfetch(url, user.access_token))
+            if not response:
+                self.redirect(self, "/auth/login")
             songs = response["items"]
 
             tvals["recents"] = songs
@@ -203,13 +205,13 @@ class CreatePlaylistHandler(BaseHandler):
 
         if user != None:
             userPlaylisturl = "https://api.spotify.com/v1/users/%s/playlists" % user.uid
-            response = spotifyurlpost(userPlaylisturl, user.access_token, params=json.dumps({"name": "Happy Time"}))
+            response = spotifyurlpost(userPlaylisturl, user.access_token, params=json.dumps({"name": "Sadboi Stopper"}))
             playlistId = json.loads(response)["id"]
             set_cookie(self.response, "new_playlist", str(playlistId))
             logging.info(playlistId)
 
             recentsURL = "https://api.spotify.com/v1/me/player/recently-played"
-            recents = json.loads(spotifyurlfetch(recentsURL, user.access_token, params={"after": "1428364800"}))
+            recents = json.loads(spotifyurlfetch(recentsURL, user.access_token))
             songs = recents["items"]
             artists = {}
 
@@ -234,8 +236,6 @@ class CreatePlaylistHandler(BaseHandler):
                    if songValence > 0.5:
                        happySongs.append(songId)
             happySongs = ["spotify:track:" + song for song in happySongs]
-            firstSong = happySongs[0]
-            logging.info("First Song" + firstSong)
             playlistUrl = "https://api.spotify.com/v1/playlists/%s/tracks"%playlistId + "?uris=" + ",".join(happySongs)
 
             tracksToPlay = spotifyurlpost(playlistUrl, user.access_token)

@@ -2,10 +2,10 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="826a5feb-add2-428b-ba56-255b54ebba92" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/newplaylist.html" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/playlist.html" beforeDir="false" afterPath="$PROJECT_DIR$/playlist.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/newplaylist.html" beforeDir="false" afterPath="$PROJECT_DIR$/newplaylist.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/oauth.html" beforeDir="false" afterPath="$PROJECT_DIR$/oauth.html" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
