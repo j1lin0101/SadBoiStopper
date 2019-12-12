@@ -1,3 +1,5 @@
+# you will need to create an app at https://developer.spotify.com/my-applications/ in order to get a key and secret
+
 def pretty(obj):
     return json.dumps(obj, sort_keys=True, indent=2)
 

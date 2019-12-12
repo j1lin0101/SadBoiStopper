@@ -11,8 +11,9 @@
                 {% for song in recents %}
                     <li>
                         <a href="{{song.track.external_urls.spotify}}">
-                            {{song.track.name}} Valence of {{valences[song.track.id]}}
+                            {{song.track.name}}
                         </a>
+                        Valence of {{valences[song.track.id]}}
                     </li>
                 {% endfor %}
             </ul>
